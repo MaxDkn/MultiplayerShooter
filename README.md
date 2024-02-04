@@ -2,6 +2,8 @@
 
 Welcome to the Multiplayer 2D Shooting Game project! This Python game is designed for multiplayer gameplay using Pygame. Please note that the project is still under development, and there is a known issue with the shooting mechanism.
 
+![Game Screenshot](screenshot.png)
+
 ## Requirements
 
 - Python 3.x
