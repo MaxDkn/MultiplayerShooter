@@ -38,9 +38,9 @@ Welcome to the Multiplayer 2D Shooting Game project! This Python game is designe
 
 ## How to Play
 
-- Use the arrow keys or WASD to move the characters.
-- Press the spacebar to shoot.
-- Follow the on-screen instructions for additional controls.
+- Use ZQSD to move the characters.
+- Click to shoot.
+- Press MAJ to change weapon (assault rifle or hand gun)
 
 ## Notes
 
