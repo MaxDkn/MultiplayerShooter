@@ -1,0 +1,748 @@
+
+                    2022-10-29 22 59 06
+ 
+		=============== client.py ===============
+
+import sys
+import pygame
+from level import Level
+from utils import draw_text
+from pygame.locals import *
+from config import font, background, button
+"""
+To do list
+*     Rajouter les tirs:
+*     Faire les collistions
+
+*     ajouter des munitions, barre de vie, et inteface sur le dessus pour voir la vie, l'arme etc... --> Fait
+      rajouter un effet de laser vert sur le fusil d'assault
+      faire les options
+      poffiner les écrans (d'acceil, d'attente, etc...) --> Oscar ?
+-     finaliser la map --> Oscar
+-     trouver de bonne règle de jeu --> Oscar
+      graphisme du joueur a faire, soi moi même, ou trouver mieux car ils bugs --> Pas obliger
+
+"""
+#  ##----------BUT FINAL----------##  #
+"""
+Règle du jeu: 
+TERRORISTE VS FBI
+
+- La map est l'intérieur d'une maison, plonger dans le noir. 
+- Il ne voit qu'avec un angle de 45°, sinon le reste est noir. # RAY TRAYSING #
+(il pourrai avoir des gadets qui permettent quand ils sont déclancher, 
+de montrer un cour instant ou se situe le personnage) 
+- le personnage avance lantement, surtout quand il a son arme équiper.
+
+    - Le but est simple:
+                - Tuer l'adversaire, 
+                ou capturer la zone ?
+    - les terroristes ont 45s pour se cacher et poser une bombe dans la maison.
+    - 5 minutes après la bombe poser, le terroriste peut activer la bombe, cette dernière mettra 30s a 
+    se déclancher et fera beaucoup de bruit.
+    - Si le policier désamorce la bombe, ou tue le terroriste avant que la bombe explose, il gagne.
+    - le rayon vert du policier est invisible pour l'autre tandis que la lampe-torche sur le pistolet est visible
+    - il y aura des portes dans la maison, qui se détruise avec des balles, ou peuvent s'ouvrir 
+
+
+"""
+
+
+class Game:
+    def __init__(self):
+        self.screen_width = 900
+        self.screen_height = 650
+
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        pygame.display.set_caption('Shooter Game')
+
+        self.clock = pygame.time.Clock()
+
+    def main_menu(self):
+        # Main menu display window, graphics to be reviewed...
+        while True:
+            self.screen.blit(background['menu'], background['menu'].get_rect(center=(450, 325)))
+            draw_text('[SHOOTER GAME]', font['Air'], (255, 255, 255), self.screen, 450, 30, side='center')
+
+            self.screen.blit(button['blue'], button['blue'].get_rect(center=(500, 230)))
+            draw_text('play', font['Air'], (255, 255, 255), self.screen, 500, 234, side='center')
+
+            self.screen.blit(button['dark blue'], button['dark blue'].get_rect(center=(497, 360)))
+            draw_text('settings', font['Air'], (255, 255, 255), self.screen, 497, 362, side='center')
+
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                if event.type == MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if button['blue'].get_rect(center=(500, 230)).collidepoint(pygame.mouse.get_pos()):
+                            Level().run()
+                        if button['dark blue'].get_rect(center=(497, 360)).collidepoint(pygame.mouse.get_pos()):
+                            self.options()
+
+            pygame.display.update()
+            self.clock.tick(10)
+
+    def options(self):
+        running = True
+        while running:
+            self.screen.blit(background['menu'], background['menu'].get_rect(center=(450, 325)))
+
+            draw_text('SETTINGS', font['Air'], (255, 255, 255), self.screen, 450, 30, side='center')
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False
+                if event.type == pygame.MOUSEBUTTONUP:
+                    print(pygame.mouse.get_pos())
+
+            pygame.display.update()
+            self.clock.tick(60)
+
+
+if __name__ == '__main__':
+    pygame.init()
+    Game().main_menu()
+
+		=============== config.py ===============
+
+import pygame
+
+pygame.init()
+
+background = {
+    'menu': pygame.transform.scale(pygame.image.load('assets/background/background.jpg'), (1015, 650))  # 1920 | 1143
+            }
+
+button = {
+    'blue': pygame.transform.scale(pygame.image.load('assets/button/BUTTON.png'), (288, 84)),  # 192 | 56
+    'dark blue': pygame.transform.scale(pygame.image.load('assets/button/BUTTON DARK BLUE.png'), (273, 81))  # 182 | 54
+          }
+
+font = {'News701 BT': pygame.font.SysFont('News701 BT', 20, True, True),
+        'Helvetica Grass': pygame.font.SysFont('Helvetica Grass', 40, True, False),
+        'Times New Roman': pygame.font.SysFont('Times New Roman', 15, False, True),
+        'Future': pygame.font.SysFont('FutureMillennium', 24),
+        'Air': pygame.font.Font('assets/font/airstrike.ttf', 50)
+        }
+
+icon = {
+    'Health':
+    {
+        'Total': pygame.image.load('assets/sprites/icon/Health.png'),
+        'Half': pygame.image.load('assets/sprites/icon/Health1Half.png'),
+        'Empty': pygame.image.load('assets/sprites/icon/HealthEmpty.png'),
+    },
+}
+
+TILE_SIZE = (25,
+             25)
+#  900 = 2*2*3*3*5*5 | 850 = 2*5*5*17
+#  650 = 2*5*5*13
+#  WIDTH --> 900p / 25p = 36 ==> Table Width | --> 850p / 25p = 34 ==> Table Width
+#  HEIGHT --> 650p / 25p = 26 ==> Table Height
+#  REAL MAP : 13.70 | 9.70 RATIO 1.412 371
+#
+
+MAP = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+    [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
+]
+
+		=============== game_state.py ===============
+
+#  game_state = {'ready': False,
+#                'pos': [(16, 18), (884, 632)],
+#                'bullet': [],
+#                }
+
+game_state = {
+    'ready': False,
+    0: {
+        'pos': (122, 568),
+        'angle': 0,
+        'current_gun': 'run',
+        'bullet': [],
+        },
+    1: {
+        'pos': (855, 617),
+        'angle': 0,
+        'current_gun': 'run',
+        'bullet': [],
+        },
+    }
+
+		=============== level.py ===============
+
+import sys
+import pickle
+import pygame
+from network import Network
+from config import font, MAP, TILE_SIZE
+from sprites import Player, Walls, Bullet
+from utils import draw_text, get_wall_name, draw_heal_bar, calcul_vector
+
+
+def convert_bullet_to_sprite(new_bullet, group, collision_sprite):
+    return Bullet(new_bullet['start_pos'], new_bullet['start_time'], new_bullet['direction'], group, collision_sprite)
+
+
+class Level:
+    def __init__(self):
+        self.screen = pygame.display.get_surface()
+        self.clock = pygame.time.Clock()
+
+        self.screen_width = self.screen.get_width()
+        self.screen_height = self.screen.get_height()
+
+        self.walls = []
+
+        self.network = Network()
+
+        self.player_count = int(self.network.get_player_count())
+        self.game = self.network.send('get')
+
+        if self.player_count == 0:
+            self.other_player_count = 1
+        else:
+            self.other_player_count = 0
+
+        pygame.display.set_caption(f'Client {self.player_count + 1} : Shooter Game')
+
+        self.all_sprites = pygame.sprite.Group()
+        self.collision_sprites = pygame.sprite.Group()
+
+        self.player = Player(self.game[self.player_count]['pos'], self.all_sprites, self.collision_sprites)
+        self.other_player = Player(self.game[self.other_player_count]['pos'], self.all_sprites, self.collision_sprites)
+
+        self.import_walls()
+        self.all_sprites.add(self.walls)
+
+        self.all_sprites.add(self.player)
+        self.all_sprites.add(self.other_player)
+        self.collision_sprites.add(self.other_player)
+
+        #  -------TIMER-------  #
+        self.game_time = 0
+        self.is_the_first_time = False
+        self.start_time = None
+
+        self.bullets = []
+
+    def import_walls(self):
+        for height_count, height_element in enumerate(MAP):
+            for width_count, width_element in enumerate(height_element):
+                if width_element == 1:
+                    wall = Walls((width_count * TILE_SIZE[0], height_count * TILE_SIZE[1] + 50),
+                                 get_wall_name(width_count, height_count), [self.all_sprites, self.collision_sprites])
+
+                    self.collision_sprites.add(wall)
+                    self.walls.append(wall)
+
+    def run(self):
+        run = True
+        while run:
+            mouse_clicked = False
+            dt = self.clock.tick(30) / 1000
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_clicked = True
+
+            if not self.game['ready']:
+                to_send = 'get'
+                self.waiting_room()
+            else:
+                to_send = {
+                    'pos': (int(self.player.pos.x), int(self.player.pos.y)),
+                    'angle': int(self.player.angle),
+                    'current_gun': self.player.current_gun,
+                    'bullet': self.bullets,
+                }
+
+                to_send = pickle.dumps(to_send)
+                self.main_room(dt, mouse_clicked)
+
+                if not self.is_the_first_time:
+                    self.start_time = pygame.time.get_ticks()
+                    self.is_the_first_time = True
+
+                self.game_time = pygame.time.get_ticks() - self.start_time
+
+            try:
+                self.game = self.network.send(to_send)
+            except Exception as _:
+                run = False
+
+            pygame.display.update()
+
+    def main_room(self, dt, mouse_clicked):
+        self.clear_border_sprite()
+
+        self.player.input()
+        if mouse_clicked:
+            print('Tir !')
+            new_bullet = {
+                          'type': 'SelfBullet',
+                          'start_pos': self.player.pos,
+                          'start_time': self.game_time,
+                          'direction': calcul_vector(self.player.pos, pygame.mouse.get_pos()),
+                          }
+            self.bullets.append(new_bullet)
+            new_sprite = convert_bullet_to_sprite(new_bullet, self.all_sprites, self.collision_sprites)
+            self.all_sprites.add(new_sprite)
+
+        self.other_player.pos.x = self.game[self.other_player_count]['pos'][0]
+        self.other_player.pos.y = self.game[self.other_player_count]['pos'][1]
+
+        self.other_player.angle = self.game[self.other_player_count]['angle']
+        self.other_player.current_gun = self.game[self.other_player_count]['current_gun']
+
+        #  --------Background--------
+        self.screen.fill('black')
+
+        self.all_sprites.update(dt, self.game_time)
+        self.all_sprites.draw(self.screen)
+
+        draw_text(f'{int(self.game_time/1000)}s', font['News701 BT'], 'green', self.screen, 20, 20)
+        draw_text(f'{int(self.clock.get_fps())} FPS', font['News701 BT'], 'red', self.screen, 880, 20, 'topright')
+        draw_heal_bar(self.player, self.screen, self.screen_width / 2, 20)
+
+        pygame.display.update()
+
+    def waiting_room(self):
+
+        #  --------Background--------
+        self.screen.fill('black')
+
+        #  -----------Text-----------
+        draw_text(f"Waiting for Player{int(pygame.time.get_ticks() / 250 % 4) * '.'}", font['Helvetica Grass'],
+                  'red', self.screen, (self.screen_width - 268) // 2, 30)
+
+        draw_text(f'{str(self.network.addr[0])} | {str(self.network.addr[1])}', font['Times New Roman'],
+                  'white', self.screen, (self.screen_width - 130), self.screen_height - 20)
+
+    def clear_border_sprite(self):
+        for sprite in self.all_sprites.sprites():
+            if hasattr(sprite, 'rect'):
+                if sprite.rect.x < -100 or sprite.rect.x > 1050:
+                    sprite.kill()
+                if sprite.rect.y < -100 or sprite.rect.y > 750:
+                    sprite.kill()
+
+		=============== network.py ===============
+
+import socket
+import pickle
+
+
+class Network:
+    def __init__(self):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server = '192.168.1.15'
+        self.port = 9000
+        self.addr = (self.server, self.port)
+        self.player_count = self.connect()
+
+    def get_player_count(self):
+        return self.player_count
+
+    def connect(self):
+        try:
+            self.client.connect(self.addr)
+            return self.client.recv(2048).decode()
+        except:
+            pass
+
+    def send(self, data):
+        try:
+            self.client.send(pickle.dumps(data))
+            #  data = pickle.loads(self.client.recv(4096))
+            return pickle.loads(self.client.recv(4096))
+        except socket.error as e:
+            print(e)
+
+		=============== server.py ===============
+
+import copy
+import socket
+from _thread import *
+import pickle
+from game_state import game_state
+
+server = socket.gethostbyname(socket.gethostname())
+port = 9000
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+try:
+    s.bind((server, port))
+except socket.error as e:
+    str(e)
+
+s.listen()
+print(f'Waiting for a connection, Server Started in {server} {port}')
+
+connected = set()
+games = {}
+idCount = 0
+
+
+def read_pos(str):
+    tuple = str.split(",")
+    return list(map(int, tuple))
+
+
+def threaded_client(conn, player, gameID):
+    global idCount
+    conn.send(str.encode(str(player)))
+
+    reply = ""
+    while True:
+        try:
+            data = pickle.loads(conn.recv(4096))
+
+            if gameID in games:
+                game = games[gameID]
+
+                if not data:
+                    break
+                else:
+                    if data == 'get':
+                        pass
+                    else:
+
+                        data = pickle.loads(data)
+                        #  print('\r', pickle.loads(str(data)), end='')
+                        game[player]['pos'] = data['pos']
+                        game[player]['angle'] = int(data['angle'])
+                        game[player]['current_gun'] = data['current_gun']
+                        game[player]['bullet'] = data['bullet']
+
+                    conn.sendall(pickle.dumps(game))
+            else:
+                break
+        except:
+            break
+    try:
+        del games[gameID]
+        print('Closing Game', gameID, games)
+
+    except Exception as e:
+        print(e)
+    idCount -= 1
+    conn.close()
+
+
+while True:
+    conn, addr = s.accept()
+    print('Connected to:', addr)
+
+    idCount += 1
+    gameID = (idCount - 1) // 2
+    if idCount % 2 == 1:
+        p = 0
+        #  games[gameID] = game_state.copy()
+        games[gameID] = copy.deepcopy(game_state)
+
+        print('Creating a new game... Game', gameID, games[gameID])
+    else:
+        games[gameID]['ready'] = True
+        p = 1
+
+    start_new_thread(threaded_client, (conn, p, gameID))
+
+		=============== sprites.py ===============
+
+import pygame.sprite
+from config import TILE_SIZE
+from utils import calcul_vector
+
+
+class Walls(pygame.sprite.Sprite):
+    def __init__(self, pos, name, group):
+        super().__init__(group)
+        self.image = pygame.image.load(f'assets/sprites/new_walls/{name}.png')
+        self.image = pygame.transform.scale(self.image, TILE_SIZE)
+
+        self.rect = self.image.get_rect()
+        self.rect.topleft = pos
+        self.hit_box = self.rect.copy().inflate((-0, -0))
+
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, pos, start_time, vector_direction, group, collision_sprites):
+        super().__init__(group)
+        self.image = pygame.transform.rotate(pygame.image.load('assets/sprites/bullet/Bullet.png'),
+                                             vector_direction.angle_to((0, 0)) + 270)
+
+        self.collision_sprites = collision_sprites
+
+        self.start_time = start_time
+        self.speed = 1000
+
+        self.direction = vector_direction
+
+        self.rect = self.image.get_rect(center=pos)
+        self.start_pos = pygame.math.Vector2(pos)
+        self.pos = pygame.math.Vector2(pos)
+
+    def update(self, dt, time):
+        for sprite in self.collision_sprites.sprites():
+            if hasattr(sprite, 'hit_box'):
+                if sprite.hit_box.colliderect(self.rect):
+                    self.kill()
+
+        self.pos.x = self.start_pos.x + self.direction.x * self.speed * ((time - self.start_time) / 1000.)
+        self.pos.y = self.start_pos.y + self.direction.y * self.speed * ((time - self.start_time) / 1000.)
+
+        self.rect.centerx = int(self.pos.x)
+        self.rect.centery = int(self.pos.y)
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos, group, collision_sprites):
+        super().__init__(group)
+        self.default_image = {}
+        self.current_gun = 'run'
+        self.import_animations()
+
+        # General Setup
+        self.image = self.default_image[self.current_gun]
+        self.rect = self.image.get_rect(center=pos)
+
+        # Movement Attributes
+        self.direction = pygame.math.Vector2()
+        self.pos = pygame.math.Vector2(pos)
+        self.speed = {'run': 80, 'gun': 40, 'assault rifle': 40}
+        self.angle = 0
+
+        # Collision
+        self.hit_box = self.rect.copy().inflate(-64, -64)
+        self.collision_sprites = collision_sprites
+
+        # Bullet Attributes
+        self.max_bullet = 100
+        self.bullet = self.max_bullet
+
+        # Heal Attribute
+        self.heal_max = 50
+        self.heal = 27
+
+    def import_animations(self):
+        for animation in ['run', 'assault rifle', 'gun']:
+            image = pygame.image.load(f'assets/sprites/player/{animation}1.png').convert_alpha()
+            image = pygame.transform.scale(image, (int(image.get_width() * 2), int(image.get_height() * 2)))
+
+            self.default_image[animation] = image
+
+    def collision(self, direction):
+        for sprite in self.collision_sprites.sprites():
+            if hasattr(sprite, 'hit_box'):
+                if sprite.hit_box.colliderect(self.hit_box):
+                    if direction == 'horizontal':
+                        if self.direction.x > 0:  # moving right
+                            self.hit_box.right = sprite.hit_box.left
+                        if self.direction.x < 0:  # moving left
+                            self.hit_box.left = sprite.hit_box.right
+                        self.rect.centerx = self.hit_box.centerx
+                        self.pos.x = self.hit_box.centerx
+
+                    if direction == 'vertical':
+                        if self.direction.y > 0:  # moving down
+                            self.hit_box.bottom = sprite.hit_box.top
+                        if self.direction.y < 0:  # moving up
+                            self.hit_box.top = sprite.hit_box.bottom
+                        self.rect.centery = self.hit_box.centery
+                        self.pos.y = self.hit_box.centery
+
+    def input(self):
+        keys = pygame.key.get_pressed()
+
+        if keys[pygame.K_q]:
+            self.direction.x = -1
+        elif keys[pygame.K_d]:
+            self.direction.x = 1
+        else:
+            self.direction.x = 0
+
+        if keys[pygame.K_z]:
+            self.direction.y = -1
+        elif keys[pygame.K_s]:
+            self.direction.y = 1
+        else:
+            self.direction.y = 0
+
+        if keys[pygame.K_LSHIFT]:
+            self.current_gun = 'assault rifle'
+        if keys[pygame.K_SPACE]:
+            self.current_gun = 'run'
+        #  ------------Update Angle------------  #
+        vector_direction = calcul_vector(self.pos, pygame.mouse.get_pos())
+        self.angle = vector_direction.angle_to((0, 0))
+
+    def update_image(self):
+        # Image Update
+        self.image = pygame.transform.rotate(self.default_image[self.current_gun], self.angle)
+        self.rect = self.image.get_rect()
+        self.rect.centerx = self.pos.x
+        self.rect.centery = self.pos.y
+
+    def move(self, dt):
+        if self.direction.magnitude() > 0:
+            self.direction = self.direction.normalize()
+
+        # Horizontal Movement
+        self.pos.x += self.direction.x * self.speed[self.current_gun] * dt
+        self.hit_box.centerx = round(self.pos.x)
+        self.rect.centerx = self.hit_box.centerx
+        self.collision('horizontal')
+
+        # Vertical Movement
+        self.pos.y += self.direction.y * self.speed[self.current_gun] * dt
+        self.hit_box.centery = round(self.pos.y)
+        self.rect.centery = self.hit_box.centery
+        self.collision('vertical')
+
+    def update(self, dt, time):
+        self.update_image()
+        self.move(dt)
+
+		=============== utils.py ===============
+
+import pygame
+from config import MAP, icon
+
+
+def reset_game():
+    return {
+        'ready': False,
+        0: {
+            'pos': (122, 568),
+            'angle': 0,
+            'current_gun': 'run',
+            'bullet': [],
+        },
+        1: {
+            'pos': (855, 617),
+            'angle': 0,
+            'current_gun': 'run',
+            'bullet': [],
+        },
+    }
+
+
+def draw_text(text, font, color, surface, x, y, side='topleft'):
+    text_obj = font.render(text, 1, color)
+    text_rect = text_obj.get_rect()
+    if side == 'topleft':
+        text_rect.topleft = (x, y)
+    elif side == 'topright':
+        text_rect.topright = (x, y)
+    elif side == 'center':
+        text_rect.center = (x, y)
+    surface.blit(text_obj, text_rect)
+
+
+def draw_heal_bar(player, surface, x, y):
+    divisive = 0.2
+    heal_icon_type = 'Total'
+    if player.heal <= 0:
+        heal_icon_type = 'Empty'
+    elif player.heal_max / 2 >= player.heal:
+        heal_icon_type = 'Half'
+
+    health = pygame.transform.scale(icon['Health'][heal_icon_type], (30, 30))
+    health_rect = health.get_rect(center=(x, y))
+
+    heal_max_bar = pygame.surface.Surface((player.heal_max / divisive, 34))
+    heal_max_bar_rect = heal_max_bar.get_rect(center=(x, y))
+    heal_max_bar.fill((20, 20, 20))
+
+    current_heal_bar = pygame.surface.Surface((player.heal / divisive, 34))
+    current_heal_bar_rect = current_heal_bar.get_rect()
+    current_heal_bar.fill('red')
+    current_heal_bar_rect.topleft = heal_max_bar_rect.topleft
+
+    surface.blit(heal_max_bar, heal_max_bar_rect)
+    surface.blit(current_heal_bar, current_heal_bar_rect)
+    surface.blit(health, health_rect)
+
+
+def make_pos(data):
+    data = str(int(data[0])) + "," + str(int(data[1]))
+    return data
+
+
+def calcul_vector(pos, mouse_pos):
+    minimal_vector = pygame.math.Vector2()
+
+    x = mouse_pos[0] - pos.x
+    y = mouse_pos[1] - pos.y
+    minimal_vector.x = x
+    minimal_vector.y = y
+
+    if minimal_vector.magnitude() < 0:
+        minimal_vector.x = 1
+        minimal_vector.y = 1
+
+    minimal_vector = minimal_vector.normalize()
+    return minimal_vector
+
+
+def get_wall_name(x, y):
+    #  North | South | East | West | None |
+    wall_name = ''
+
+    if not y - 1 < 0:
+        if MAP[y - 1][x] == 1:
+            wall_name += 'North'
+    if not y + 1 > (len(MAP) - 1):
+        if MAP[y + 1][x] == 1:
+            wall_name += 'South'
+
+    if not x + 1 > (len(MAP[0]) - 1):
+        if MAP[y][x + 1] == 1:
+            wall_name += 'East'
+    if not x - 1 < 0:
+        if MAP[y][x - 1] == 1:
+            wall_name += 'West'
+
+    if wall_name == '':
+        wall_name = 'None'
+
+    return wall_name
+

@@ -1,0 +1,426 @@
+
+                    2022-10-27 12 28 13
+ 
+		=============== client.py ===============
+
+import sys
+import pygame
+from level import Level
+from utils import draw_text
+from pygame.locals import *
+
+
+class Game:
+    def __init__(self):
+        self.screen_width = 900
+        self.screen_height = 650
+
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        pygame.display.set_caption('Client : Shooter Game')
+
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont('News701 BT', 20)
+
+    def main_menu(self):
+        # Main menu display window, graphics to be reviewed...
+        while True:
+            self.screen.fill((0, 0, 0))
+            draw_text('main menu', self.font, (255, 255, 255), self.screen, 20, 20)
+
+            button_1 = pygame.Rect(50, 100, 200, 50)
+            button_2 = pygame.Rect(50, 200, 200, 50)
+            pygame.draw.rect(self.screen, (255, 0, 0), button_1)
+            pygame.draw.rect(self.screen, (255, 0, 0), button_2)
+
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                if event.type == MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if button_1.collidepoint(pygame.mouse.get_pos()):
+                            Level().run()
+                        if button_2.collidepoint(pygame.mouse.get_pos()):
+                            self.options()
+
+            pygame.display.update()
+            self.clock.tick(10)
+
+    def options(self):
+        running = True
+        while running:
+            self.screen.fill((100, 100, 100))
+
+            draw_text('options', self.font, (255, 255, 255), self.screen, 20, 20)
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        running = False
+
+            pygame.display.update()
+            self.clock.tick(60)
+
+
+if __name__ == '__main__':
+    pygame.init()
+    Game().main_menu()
+
+		=============== config.py ===============
+
+import pygame
+pygame.init()
+
+
+font = {'News701 BT': pygame.font.SysFont('News701 BT', 20),
+        'Helvetica Grass': pygame.font.SysFont('Helvetica Grass', 40),
+        'Times New Roman': pygame.font.SysFont('Times New Roman', 15),
+        }
+
+		=============== game_state.py ===============
+
+"""
+game_state = {'ready': False,
+              'pos': [(16, 18), (884, 632)],
+              'bullet': [],
+              }
+
+"""
+game_state = {'ready': False,
+
+              0: {'pos': (16, 18),
+                  'angle': 0,
+                  'current_gun': 'run',
+                  },
+              1: {'pos': (884, 632),
+                  'angle': 0,
+                  'current_gun': 'run',
+                  },
+
+              'bullet': [],
+              }
+
+		=============== level.py ===============
+
+import sys
+import pickle
+import pygame
+from config import font
+from player import Player
+from utils import draw_text
+from network import Network
+
+
+class Level:
+    def __init__(self):
+        self.screen = pygame.display.get_surface()
+        self.clock = pygame.time.Clock()
+
+        self.screen_width = self.screen.get_width()
+        self.screen_height = self.screen.get_height()
+
+        self.network = Network()
+
+        self.player_count = int(self.network.getP())
+        self.game = self.network.send('get')
+
+        if self.player_count == 0:
+            self.other_player_count = 1
+        else:
+            self.other_player_count = 0
+
+        self.background = pygame.surface.Surface((self.screen_width, self.screen_height))
+        self.background.fill((255, 255, 255))
+
+        self.all_sprites = pygame.sprite.Group()
+
+        self.player = Player(self.game[self.player_count]['pos'], self.all_sprites)
+        self.other_player = Player(self.game[self.other_player_count]['pos'], self.all_sprites)
+
+        self.all_sprites.add(self.player)
+        self.all_sprites.add(self.other_player)
+
+    def run(self):
+        while True:
+            dt = self.clock.tick() / 1000
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            if not self.game['ready']:
+                to_send = 'get'
+                self.waiting_room()
+            else:
+                to_send = {'pos': (int(self.player.pos.x), int(self.player.pos.y)),
+                           'angle': int(self.player.angle),
+                           'current_gun': self.player.current_gun,
+                           }
+                to_send = pickle.dumps(to_send)
+
+                self.main_room(dt)
+
+            self.game = self.network.send(to_send)
+            pygame.display.update()
+
+    def main_room(self, dt):
+
+        self.player.move()
+
+        self.other_player.pos.x = self.game[self.other_player_count]['pos'][0]
+        self.other_player.pos.y = self.game[self.other_player_count]['pos'][1]
+
+        self.other_player.angle = self.game[self.other_player_count]['angle']
+        self.other_player.current_gun = self.game[self.other_player_count]['current_gun']
+
+        self.screen.fill((10, 10, 10))
+
+        self.all_sprites.update(dt)
+        self.all_sprites.draw(self.screen)
+
+        pygame.display.update()
+
+    def waiting_room(self):
+
+        #  --------Background--------
+        self.screen.fill('black')
+
+        #  -----------Text-----------
+        draw_text(f"Waiting for Player{int(pygame.time.get_ticks() / 250 % 4) * '.'}", font['Helvetica Grass'],
+                  (255, 0, 0), self.screen, (self.screen_width - 268) // 2, 30)
+
+        draw_text(f'{str(self.network.addr[0])} | {str(self.network.addr[1])}', font['Times New Roman'],
+                  (255, 255, 255), self.screen, (self.screen_width - 130), self.screen_height - 20)
+
+		=============== network.py ===============
+
+import socket
+import pickle
+
+
+class Network:
+    def __init__(self):
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server = '192.168.1.15'
+        self.port = 9000
+        self.addr = (self.server, self.port)
+        self.p = self.connect()
+
+    def getP(self):
+        return self.p
+
+    def connect(self):
+        try:
+            self.client.connect(self.addr)
+            return self.client.recv(2048).decode()
+        except:
+            pass
+
+    def send(self, data):
+        try:
+            self.client.send(pickle.dumps(data))
+            #  data = pickle.loads(self.client.recv(4096))
+            return pickle.loads(self.client.recv(4096))
+        except socket.error as e:
+            print(e)
+
+		=============== player.py ===============
+
+import pygame
+from utils import calcul_vector
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos, group):
+        super().__init__(group)
+        self.angle = 0
+        self.current_gun = 'run'
+        self.speed = {'run': 80, 'gun': 40}
+        self.default_image = {}
+
+        for animation in ['run', 'assault rifle', 'gun']:
+            image = pygame.image.load(f'assets/PrototypeShooter/Individual Animations/{animation}1.png')
+            image = pygame.transform.scale(image, (int(image.get_width() * 2.08), int(image.get_height() * 2.08)))
+
+            self.default_image[animation] = image
+
+        self.image = self.default_image[self.current_gun]
+        self.degrees = 0
+
+        self.rect = self.image.get_rect()
+        self.rect.center = pos
+
+        self.direction = pygame.math.Vector2()
+        self.pos = pygame.math.Vector2(pos)
+
+    def move(self):
+        keys = pygame.key.get_pressed()
+
+        if keys[pygame.K_q]:
+            self.direction.x = -1
+        elif keys[pygame.K_d]:
+            self.direction.x = 1
+        else:
+            self.direction.x = 0
+
+        if keys[pygame.K_z]:
+            self.direction.y = -1
+        elif keys[pygame.K_s]:
+            self.direction.y = 1
+        else:
+            self.direction.y = 0
+
+        if keys[pygame.K_a]:
+            self.current_gun = 'gun'
+        if keys[pygame.K_SPACE]:
+            self.current_gun = 'run'
+
+        #  ------------Update Angle------------  #
+        vector_direction = calcul_vector(self.pos, pygame.mouse.get_pos())
+        zero_zero = pygame.math.Vector2((0, 0))
+        self.angle = vector_direction.angle_to((0, 0))
+
+    def update(self, dt):
+        if self.direction.magnitude() > 0:
+            self.direction = self.direction.normalize()
+
+        #  print(self.pos.angle_to(mouse_pos))
+        self.rect = self.image.get_rect()
+
+        self.pos.x += self.direction.x * self.speed[self.current_gun] * dt
+        self.pos.y += self.direction.y * self.speed[self.current_gun] * dt
+
+        self.rect.centerx = self.pos.x
+        self.rect.centery = self.pos.y
+
+        self.image = pygame.transform.rotate(self.default_image[self.current_gun], self.angle)
+
+		=============== server.py ===============
+
+import socket
+from _thread import *
+import pickle
+from game_state import game_state
+
+server = socket.gethostbyname(socket.gethostname())
+port = 9000
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+try:
+    s.bind((server, port))
+except socket.error as e:
+    str(e)
+
+s.listen()
+print(f'Waiting for a connection, Server Started in {server} {port}')
+
+connected = set()
+games = {}
+idCount = 0
+
+
+def read_pos(str):
+    tuple = str.split(",")
+    return list(map(int, tuple))
+
+
+def threaded_client(conn, player, gameID):
+    global idCount
+    conn.send(str.encode(str(player)))
+
+    reply = ""
+    while True:
+        try:
+            data = pickle.loads(conn.recv(4096))
+
+            if gameID in games:
+                game = games[gameID]
+
+                if not data:
+                    break
+                else:
+                    if data == 'get':
+                        print('\r', data, end='')
+                    else:
+                        try:
+                            data = pickle.loads(data)
+                            #  print('\r', pickle.loads(str(data)), end='')
+                            game[player]['pos'] = data['pos']
+                            game[player]['angle'] = int(data['angle'])
+                            game[player]['current_gun'] = data['current_gun']
+
+                        except Exception as e:
+                            print(e)
+
+                    reply = game
+                    conn.sendall(pickle.dumps(reply))
+            else:
+                break
+        except:
+            break
+    try:
+        del games[gameID]
+        print('Closing Game', gameID, games)
+
+    except Exception as e:
+        print(e)
+    idCount -= 1
+    conn.close()
+
+
+while True:
+    conn, addr = s.accept()
+    print('Connected to:', addr)
+
+    idCount += 1
+    p = 0
+    gameID = (idCount - 1) // 2
+    if idCount % 2 == 1:
+        games[gameID] = game_state.copy()
+        print('Creating a new game... Game', gameID)
+    else:
+        games[gameID]['ready'] = True
+        p = 1
+
+    start_new_thread(threaded_client, (conn, p, gameID))
+
+		=============== utils.py ===============
+
+import pygame
+import math
+
+
+def draw_text(text, font, color, surface, x, y):
+    text_obj = font.render(text, 1, color)
+    text_rect = text_obj.get_rect()
+    text_rect.topleft = (x, y)
+    surface.blit(text_obj, text_rect)
+
+
+def make_pos(data):
+    data = str(int(data[0])) + "," + str(int(data[1]))
+    return data
+
+
+def calcul_vector(pos, mouse_pos):
+    minimal_vector = pygame.math.Vector2()
+
+    x = mouse_pos[0] - pos.x
+    y = mouse_pos[1] - pos.y
+    minimal_vector.x = x
+    minimal_vector.y = y
+
+    if minimal_vector.magnitude() < 0:
+        minimal_vector.x = 1
+        minimal_vector.y = 1
+
+    minimal_vector = minimal_vector.normalize()
+    return minimal_vector
+
